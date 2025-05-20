@@ -2,6 +2,7 @@ from fsm import FSM
 from server import message_queue, connections, lock
 import time
 import random
+import logging
 
 class RaftNode:
     def __init__(self, my_addr, others, election_timeout_range=(4, 10)):
@@ -40,7 +41,7 @@ class RaftNode:
     def reset_election_timeout(self):
         min_timeout, max_timeout = self.election_timeout_range
         self.election_timeout = time.time() + random.uniform(min_timeout, max_timeout)
-        print(f"Election timeout: {self.election_timeout - time.time()} s")
+        logging.info(f"Election timeout: {self.election_timeout - time.time()} s")
 
     # ---------- Condiciones ----------
 
@@ -90,19 +91,19 @@ class RaftNode:
         self.term += 1
         self.voted_for = self.addr
         self.votes_received = {self.addr}
-        print(f"[Raft] {self.addr} becomes CADIDATE (term {self.term})")
+        logging.info(f"[Raft] {self.addr} becomes CADIDATE (term {self.term})")
         self.send_to_all(f"VoteRequest {self.term} {self.addr}")
         self.reset_election_timeout()
 
     def become_leader(self):
         self.next_heartbeat_time = time.time()
-        print(f"[Raft] {self.addr} becomes LEADER (term {self.term})")
+        logging.info(f"[Raft] {self.addr} becomes LEADER (term {self.term})")
 
     def back_to_follower_due_to_timeout(self):
         self.voted_for = None
         self.votes_received = set()
         self.reset_election_timeout()
-        print(f"[Raft] {self.addr} reverts to FOLLOWER due to timeout (term {self.term})")
+        logging.info(f"[Raft] {self.addr} reverts to FOLLOWER due to timeout (term {self.term})")
 
     def handle_append_entries(self):
         addr, msg = self.pending_msg
@@ -137,12 +138,12 @@ class RaftNode:
         self.reset_election_timeout()
 
     def ignore_vote(self):
-        print("Ignored Vote")
+        logging.info("Ignored Vote")
         message_queue.get()
         self.reset_election_timeout()
 
     def ignore_vote_request(self):
-        print("Ignored VoteRequest")
+        logging.info("Ignored VoteRequest")
         message_queue.get()
         self.reset_election_timeout()
 
@@ -159,7 +160,7 @@ class RaftNode:
         return self.fsm_leader.state == "leader"
 
     def send_to_all(self, msg):
-        print(f"<send_to_all> {msg}")
+        logging.info(f"<send_to_all> {msg}")
         with lock:
             for conn in connections:
                 try:
@@ -168,7 +169,7 @@ class RaftNode:
                     pass
 
     def send_to(self, addr, msg):
-        print(f"<send> {msg}")
+        logging.info(f"<send> {msg}")
         with lock:
             for conn in connections:
                 try:
