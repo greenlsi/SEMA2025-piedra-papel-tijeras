@@ -1,10 +1,12 @@
 from fsm import FSM
 from server import start_server, message_queue, connect_to_peer, connections, lock
+from raft import RaftNode
 import threading
 import time
 import sys
+from shell import start_shell
 
-# Propia dirección
+# Dirección propia
 my_host, my_port = sys.argv[1].split(":")
 my_port = int(my_port)
 my_addr = sys.argv[1]
@@ -20,34 +22,13 @@ for peer in others:
     host, port = peer.split(":")
     threading.Thread(target=connect_to_peer, args=(host, int(port)), daemon=True).start()
 
-# FSM
-def hay_mensaje():
-    return not message_queue.empty()
+# Instancia de Raft
+raft = RaftNode(my_addr, others)
 
-def tiempo_expirado():
-    return time.time() - tiempo_expirado.last_time > 5
-tiempo_expirado.last_time = time.time()
+start_shell(raft)
 
-def imprimir_mensaje():
-    address, msg = message_queue.get()
-    print(f"[FSM] Mensaje de {address}: {msg}")
-
-def enviar_ping():
-    mensaje = f"Ping de {my_addr}"
-    with lock:
-        for conn in list(connections):
-            try:
-                conn.sendall(mensaje.encode('utf-8'))
-            except:
-                connections.remove(conn)
-    tiempo_expirado.last_time = time.time()
-
-fsm = FSM("MainFSM", "activo", [
-    ("activo", hay_mensaje, "activo", imprimir_mensaje),
-    ("activo", tiempo_expirado, "activo", enviar_ping)
-])
-
+# Bucle principal
 while True:
-    fsm.fire()
-    time.sleep(0.1)
+    raft.fire()
+    time.sleep(1)
 

@@ -1,23 +1,24 @@
 
 class FSM:
-    def __init__(self, nombre, estado_inicial, transiciones):
+    def __init__(self, name, initial_state, transitions):
         """
         Inicializa una máquina de estados finitos.
-        transiciones: lista de 4-tuplas (estado_origen, condicion, estado_destino, accion)
+        transiciones: lista de 4-tuplas (orig_state, condition, dest_state, action)
         """
-        self.nombre = nombre
-        self.estado = estado_inicial
-        self.transiciones = transiciones
+        self.name = name
+        self.state = initial_state
+        self.transitions = transitions
 
     def fire(self):
         """
         Evalúa las condiciones de las transiciones desde el estado actual.
-        Ejecuta la primera transición cuya condición se cumple.
+        Ejecuta la primera transición cuya condición se cumple. 
+        Esto hace que toda FSM sea determinista.
         """
-        for origen, condicion, destino, accion in self.transiciones:
-            if self.estado == origen and condicion():
-                print(f"[{self.nombre}] {origen} --({condicion.__name__})--> {destino}")
-                accion()
-                self.estado = destino
+        for orig, cond, dest, action in self.transitions:
+            if self.state == orig and cond():
+                print(f"[{self.name}] {orig} --({cond.__name__})--> {dest}")
+                action()
+                self.state = dest
                 break
 

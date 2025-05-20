@@ -15,6 +15,7 @@ def handle_client(client_socket, address):
             if not message:
                 break
             message_queue.put((address, message))
+            print(f"<recv> {message}")
     finally:
         client_socket.close()
 
