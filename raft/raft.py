@@ -28,7 +28,7 @@ class RaftNode:
         self.commit_index = self.journal.getRaftCommitIndex()
         self.last_applied = 1
 
-        self.fsm_leader = FSM("raft:leader", "follower", [
+        self.fsm = FSM("raft:leader", "follower", [
             # Follower
             ("follower", self.timeout_expired, "candidate", self.become_candidate),
             ("follower", self.has_append_entries, "follower", self.handle_append_entries),
@@ -60,7 +60,7 @@ class RaftNode:
         return time.time() > self.election_timeout
 
     def received_majority_votes(self):
-        return self.fsm_leader.state == "candidate" and len(self.votes_received) > len(self.others) // 2
+        return self.fsm.state == "candidate" and len(self.votes_received) > len(self.others) // 2
 
     def has_append_entries(self):
         if not message_queue.empty():
@@ -146,7 +146,7 @@ class RaftNode:
         addr, msg = self.pending_msg
         _, term, voter = msg.split()
         term = int(term)
-        if self.fsm_leader.state == "candidate" and term == self.term:
+        if self.fsm.state == "candidate" and term == self.term:
             self.votes_received.add(voter)
         message_queue.get()
         self.reset_election_timeout()
@@ -168,10 +168,10 @@ class RaftNode:
     # ---------- Utilidades ----------
 
     def fire(self):
-        self.fsm_leader.fire()
+        self.fsm.fire()
 
     def is_leader(self):
-        return self.fsm_leader.state == "leader"
+        return self.fsm.state == "leader"
 
     def send_to_all(self, msg):
         logging.info(f"<send_to_all> {msg}")

@@ -4,7 +4,7 @@ from raft import RaftNode
 import threading
 import time
 import sys
-from raft.shell import start_shell
+from shell import start_shell
 
 done = threading.Event()
 

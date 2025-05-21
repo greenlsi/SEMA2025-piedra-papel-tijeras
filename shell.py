@@ -95,7 +95,7 @@ def bind_focus_keys(kb, input_window, output_window, log_window):
 
 
 def start_shell(raft, done):
-    from .server import message_queue
+    from raft.server import message_queue
 
     # Comandos disponibles
     available_commands = [
@@ -165,14 +165,14 @@ def start_shell(raft, done):
 
         if line == "raft show":
             output = ["[Raft STATUS]"]
-            output.append(f"  Estado LE:        {raft.fsm_leader.state}")
+            output.append(f"  Estado LE:        {raft.fsm.state}")
             output.append(f"  Término actual:   {raft.term}")
             output.append(f"  Votado por:       {raft.voted_for}")
             output.append(f"  Soy líder:        {'sí' if raft.is_leader() else 'no'}")
-            if raft.fsm_leader.state in ("follower", "candidate"):
+            if raft.fsm.state in ("follower", "candidate"):
                 remaining = max(0, raft.election_timeout - time.time())
                 output.append(f"  Timeout en:       {remaining:.2f} segundos")
-            if raft.fsm_leader.state == "candidate":
+            if raft.fsm.state == "candidate":
                 output.append(f"  Votos recibidos:  {raft.votes_received}")
             set_output("\n".join(output))
 
