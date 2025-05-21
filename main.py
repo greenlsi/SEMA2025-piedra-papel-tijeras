@@ -6,6 +6,8 @@ import time
 import sys
 from shell import start_shell
 
+done = threading.Event()
+
 # Dirección propia
 my_host, my_port = sys.argv[1].split(":")
 my_port = int(my_port)
@@ -25,10 +27,10 @@ for peer in others:
 # Instancia de Raft
 raft = RaftNode(my_addr, others)
 
-start_shell(raft)
+start_shell(raft, done)
 
 # Bucle principal
-while True:
+while not done.is_set():
     raft.fire()
     time.sleep(1)
 

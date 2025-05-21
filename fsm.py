@@ -1,3 +1,4 @@
+import logging
 
 class FSM:
     def __init__(self, name, initial_state, transitions):
@@ -17,7 +18,7 @@ class FSM:
         """
         for orig, cond, dest, action in self.transitions:
             if self.state == orig and cond():
-                print(f"[{self.name}] {orig} --({cond.__name__})--> {dest}")
+                logging.debug(f"[{self.name}] {orig} --({cond.__name__})--> {dest}")
                 action()
                 self.state = dest
                 break
