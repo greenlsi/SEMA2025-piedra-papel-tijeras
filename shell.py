@@ -2,6 +2,7 @@ import logging
 from threading import Thread
 import time
 import asyncio
+import os
 
 from prompt_toolkit import Application
 from prompt_toolkit.application import get_app
@@ -11,6 +12,10 @@ from prompt_toolkit.widgets import TextArea
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
 from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.key_binding.bindings.scroll import (
+    scroll_page_up, scroll_page_down, scroll_one_line_up, scroll_one_line_down,
+)
 
 
 class UILogHandler(logging.Handler):
@@ -18,6 +23,7 @@ class UILogHandler(logging.Handler):
         super().__init__()
         self.log_window = log_window
         self.max_lines = max_lines
+        self.user_scrolled = False
 
     def emit(self, record):
         msg = self.format(record)
@@ -26,14 +32,17 @@ class UILogHandler(logging.Handler):
 
         async def append():
             buffer = self.log_window.buffer
-            buffer.insert_text(msg)
 
-            # Recortar si excede
-            lines = buffer.text.splitlines()
-            if len(lines) > self.max_lines:
-                trimmed = '\n'.join(lines[-self.max_lines:])
-                buffer.text = trimmed
-                buffer.cursor_position = len(trimmed)
+            if not self.user_scrolled:
+                buffer.insert_text(msg)
+                lines = buffer.text.splitlines()
+                if len(lines) > self.max_lines:
+                    trimmed = '\n'.join(lines[-self.max_lines:])
+                    buffer.text = trimmed
+                    buffer.cursor_position = len(trimmed)
+            else:
+                # Si el usuario ha hecho scroll, no mover el cursor
+                buffer.insert_text(msg)
 
             get_app().invalidate()
 
@@ -45,12 +54,60 @@ class UILogHandler(logging.Handler):
             print(msg)
 
 
+def bind_scroll_keys(kb, textarea):
+    @kb.add("pageup")
+    def _(event):
+        if event.app.layout.has_focus(textarea):
+            textarea.buffer.cursor_position -= 80
+            scroll_page_up(event)
+
+    @kb.add("pagedown")
+    def _(event):
+        if event.app.layout.has_focus(textarea):
+            textarea.buffer.cursor_position += 80
+            scroll_page_down(event)
+
+    @kb.add("c-u")
+    def _(event):
+        if event.app.layout.has_focus(textarea):
+            textarea.buffer.cursor_position -= 1
+            scroll_one_line_up(event)
+
+    @kb.add("c-d")
+    def _(event):
+        if event.app.layout.has_focus(textarea):
+            textarea.buffer.cursor_position += 1
+            scroll_one_line_down(event)
+
+        # Marcar que el usuario ha hecho scroll (para autoscroll controlado)
+        for h in logging.getLogger().handlers:
+            if isinstance(h, UILogHandler):
+                h.user_scrolled = True
+
+def bind_focus_keys(kb, input_window, output_window, log_window):
+    @kb.add('escape', 'i')
+    def _(event):
+        event.app.layout.focus(input_window)
+
+    @kb.add('escape', 'o')
+    def _(event):
+        event.app.layout.focus(output_window)
+
+    @kb.add('escape', 'l')
+    def _(event):
+        event.app.layout.focus(log_window)
+
+
 def start_shell(raft, done):
     from server import message_queue
 
     # Comandos disponibles
-    available_commands = ["raft show", "mq show", "help", "exit"]
+    available_commands = [
+        "raft show", "mq show", "help", "exit",
+        "focus input", "focus output", "focus logs"
+    ]
     command_completer = WordCompleter(available_commands, ignore_case=True, sentence=True)
+    history_file = os.path.expanduser("~/.piedra_papel_tijeras_history")
 
     # Widgets
     log_window = TextArea(style='class:log', scrollbar=True, wrap_lines=False, height=D(weight=2))
@@ -60,7 +117,9 @@ def start_shell(raft, done):
         height=1,
         prompt='> ',
         completer=command_completer,
-        multiline=False
+        multiline=False,
+        history=FileHistory(history_file),
+        wrap_lines=False
     )
 
     # Layout completo
@@ -72,8 +131,13 @@ def start_shell(raft, done):
 
     # Key bindings
     kb = KeyBindings()
+    bind_scroll_keys(kb, log_window)
+    bind_scroll_keys(kb, output_window)
+    bind_focus_keys(kb, input_window, output_window, log_window)
 
     @kb.add('enter')
+    @kb.add('c-r')
+
     def _(event):
         line = input_window.text.strip()
         input_window.text = ''
@@ -137,8 +201,21 @@ def start_shell(raft, done):
             app.exit()
             done.set()
 
+        elif line == "focus input":
+            app.layout.focus(input_window)
+            set_output("\u2192 Foco en entrada de comandos")
+
+        elif line == "focus output":
+            app.layout.focus(output_window)
+            set_output("\u2192 Foco en ventana de output")
+
+        elif line == "focus logs":
+            app.layout.focus(log_window)
+            set_output("\u2192 Foco en ventana de logs")
+
         else:
             logging.warning("Comando no reconocido. Escribe 'help' para ver los comandos.")
+            set_output(f"Comando no reconocido: {line}")
 
     # Lanzar UI
     Thread(target=app.run, daemon=True).start()
