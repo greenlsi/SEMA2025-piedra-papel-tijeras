@@ -95,7 +95,7 @@ def bind_focus_keys(kb, input_window, output_window, log_window):
 
 
 def start_shell(raft, done):
-    from server import message_queue
+    from .server import message_queue
 
     # Comandos disponibles
     available_commands = [

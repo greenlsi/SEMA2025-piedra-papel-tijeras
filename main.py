@@ -1,10 +1,10 @@
 from fsm import FSM
-from server import start_server, message_queue, connect_to_peer, connections, lock
+from raft.server import start_server, message_queue, connect_to_peer, connections, lock
 from raft import RaftNode
 import threading
 import time
 import sys
-from shell import start_shell
+from raft.shell import start_shell
 
 done = threading.Event()
 

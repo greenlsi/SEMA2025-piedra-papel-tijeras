@@ -1,11 +1,13 @@
 from fsm import FSM
-from server import message_queue, connections, lock
+from .server import message_queue, connections, lock
+from .journal import createJournal
+from .commands import encode_command
 import time
 import random
 import logging
 
 class RaftNode:
-    def __init__(self, my_addr, others, election_timeout_range=(4, 10)):
+    def __init__(self, my_addr, others, election_timeout_range=(4, 10), journal_file=None):
         self.addr = my_addr
         self.others = others
         self.term = 0
@@ -16,6 +18,15 @@ class RaftNode:
         self.reset_election_timeout()
         self.heartbeat_interval = 1
         self.next_heartbeat_time = 0
+
+        # Journal setup
+        self.journal = createJournal(journal_file)
+        if len(self.journal) == 0:
+            idx = 1
+            self.journal.add(encode_command("NO_OP"), idx, self.term)
+
+        self.commit_index = self.journal.getRaftCommitIndex()
+        self.last_applied = 1
 
         self.fsm_leader = FSM("raft:leader", "follower", [
             # Follower
@@ -98,6 +109,9 @@ class RaftNode:
     def become_leader(self):
         self.next_heartbeat_time = time.time()
         logging.info(f"[Raft] {self.addr} becomes LEADER (term {self.term})")
+        # Add NO_OP to journal when becoming leader
+        idx = len(self.journal) + 1
+        self.journal.add(b'NO_OP', idx, self.term)
 
     def back_to_follower_due_to_timeout(self):
         self.voted_for = None
