@@ -4,12 +4,14 @@ import time
 import asyncio
 
 from prompt_toolkit import Application
-from prompt_toolkit.application import run_in_terminal, get_app
-from prompt_toolkit.layout import Layout, HSplit, Window
+from prompt_toolkit.application import get_app
+from prompt_toolkit.layout import Layout, HSplit
 from prompt_toolkit.layout.dimension import D
 from prompt_toolkit.widgets import TextArea
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
+from prompt_toolkit.completion import WordCompleter
+
 
 class UILogHandler(logging.Handler):
     def __init__(self, log_window, max_lines=1000):
@@ -24,7 +26,6 @@ class UILogHandler(logging.Handler):
 
         async def append():
             buffer = self.log_window.buffer
-
             buffer.insert_text(msg)
 
             # Recortar si excede
@@ -43,16 +44,26 @@ class UILogHandler(logging.Handler):
             print("Error en logging UI:", e)
             print(msg)
 
+
 def start_shell(raft, done):
-    from server import message_queue  # Import diferido
-    from prompt_toolkit.layout.dimension import D
+    from server import message_queue
+
+    # Comandos disponibles
+    available_commands = ["raft show", "mq show", "help", "exit"]
+    command_completer = WordCompleter(available_commands, ignore_case=True, sentence=True)
 
     # Widgets
     log_window = TextArea(style='class:log', scrollbar=True, wrap_lines=False, height=D(weight=2))
     output_window = TextArea(style='class:output', scrollbar=True, wrap_lines=True, height=D(weight=1))
-    input_window = TextArea(style='class:input', height=1)
+    input_window = TextArea(
+        style='class:input',
+        height=1,
+        prompt='> ',
+        completer=command_completer,
+        multiline=False
+    )
 
-    # Layout con altura proporcional
+    # Layout completo
     layout = Layout(HSplit([
         log_window,
         output_window,
@@ -78,16 +89,13 @@ def start_shell(raft, done):
     # App
     app = Application(layout=layout, key_bindings=kb, full_screen=True, style=style)
 
-    # Logger
+    # Logger (limpiar handlers previos)
+    for h in logging.root.handlers[:]:
+        logging.root.removeHandler(h)
     handler = UILogHandler(log_window)
     handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
-
-    # Eliminar todos los handlers anteriores (como el StreamHandler por defecto)
-    for h in logging.root.handlers[:]:
-        logging.root.removeHandler(h)
-
     logger.addHandler(handler)
 
     def set_output(text):
@@ -121,7 +129,7 @@ def start_shell(raft, done):
 
         elif line == "help":
             output = ["Comandos disponibles:"]
-            for cmd in ["raft show", "mq show", "help", "exit"]:
+            for cmd in available_commands:
                 output.append(f"  {cmd}")
             set_output("\n".join(output))
 
@@ -132,5 +140,6 @@ def start_shell(raft, done):
         else:
             logging.warning("Comando no reconocido. Escribe 'help' para ver los comandos.")
 
+    # Lanzar UI
     Thread(target=app.run, daemon=True).start()
 
