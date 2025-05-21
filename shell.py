@@ -57,27 +57,23 @@ class UILogHandler(logging.Handler):
 def bind_scroll_keys(kb, textarea):
     @kb.add("pageup")
     def _(event):
-        if event.app.layout.has_focus(textarea):
-            textarea.buffer.cursor_position -= 80
-            scroll_page_up(event)
+        textarea.buffer.cursor_position -= 80
+        scroll_page_up(event)
 
     @kb.add("pagedown")
     def _(event):
-        if event.app.layout.has_focus(textarea):
-            textarea.buffer.cursor_position += 80
-            scroll_page_down(event)
+        textarea.buffer.cursor_position += 80
+        scroll_page_down(event)
 
     @kb.add("c-u")
     def _(event):
-        if event.app.layout.has_focus(textarea):
-            textarea.buffer.cursor_position -= 1
-            scroll_one_line_up(event)
+        textarea.buffer.cursor_position -= 1
+        scroll_one_line_up(event)
 
     @kb.add("c-d")
     def _(event):
-        if event.app.layout.has_focus(textarea):
-            textarea.buffer.cursor_position += 1
-            scroll_one_line_down(event)
+        textarea.buffer.cursor_position += 1
+        scroll_one_line_down(event)
 
         # Marcar que el usuario ha hecho scroll (para autoscroll controlado)
         for h in logging.getLogger().handlers:
@@ -136,8 +132,6 @@ def start_shell(raft, done):
     bind_focus_keys(kb, input_window, output_window, log_window)
 
     @kb.add('enter')
-    @kb.add('c-r')
-
     def _(event):
         line = input_window.text.strip()
         input_window.text = ''
