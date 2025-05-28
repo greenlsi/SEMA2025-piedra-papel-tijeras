@@ -5,6 +5,9 @@ import threading
 import time
 import sys
 from shell import start_shell
+from config import load_config
+
+load_config()
 
 done = threading.Event()
 

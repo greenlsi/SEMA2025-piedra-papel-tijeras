@@ -5,18 +5,26 @@ from .commands import encode_command
 import time
 import random
 import logging
+from config import get_config
 
 class RaftNode:
-    def __init__(self, my_addr, others, election_timeout_range=(4, 10), journal_file=None):
+    def __init__(self, my_addr, others, journal_file=None):
         self.addr = my_addr
         self.others = others
         self.term = 0
         self.voted_for = None
         self.votes_received = set()
         self.pending_msg = None
-        self.election_timeout_range = election_timeout_range
+
+        # Load config values
+        config = get_config()
+        raft_config = config.get("raft", {})
+        min_timeout = raft_config.get("election_timeout_min", 4)
+        max_timeout = raft_config.get("election_timeout_max", 10)
+        self.election_timeout_range = (min_timeout, max_timeout)
+        self.heartbeat_interval = raft_config.get("heartbeat_interval", 1)
+
         self.reset_election_timeout()
-        self.heartbeat_interval = 1
         self.next_heartbeat_time = 0
 
         # Journal setup
@@ -52,7 +60,8 @@ class RaftNode:
     def reset_election_timeout(self):
         min_timeout, max_timeout = self.election_timeout_range
         self.election_timeout = time.time() + random.uniform(min_timeout, max_timeout)
-        logging.info(f"Election timeout: {self.election_timeout - time.time()} s")
+        remaining = self.election_timeout - time.time()
+        logging.info(f"Election timeout: {remaining:.2f} s")
 
     # ---------- Condiciones ----------
 
@@ -102,7 +111,7 @@ class RaftNode:
         self.term += 1
         self.voted_for = self.addr
         self.votes_received = {self.addr}
-        logging.info(f"[Raft] {self.addr} becomes CADIDATE (term {self.term})")
+        logging.info(f"[Raft] {self.addr} becomes CANDIDATE (term {self.term})")
         self.send_to_all(f"VoteRequest {self.term} {self.addr}")
         self.reset_election_timeout()
 

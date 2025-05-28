@@ -3,7 +3,9 @@ from threading import Thread
 import time
 import asyncio
 import os
+import json
 
+from config import get_config, set_config, save_config
 from prompt_toolkit import Application
 from prompt_toolkit.application import get_app
 from prompt_toolkit.layout import Layout, HSplit
@@ -100,7 +102,7 @@ def start_shell(raft, done):
     # Comandos disponibles
     available_commands = [
         "raft show", "mq show", "help", "exit",
-        "focus input", "focus output", "focus logs"
+        "config show", "config set"
     ]
     command_completer = WordCompleter(available_commands, ignore_case=True, sentence=True)
     history_file = os.path.expanduser("~/.piedra_papel_tijeras_history")
@@ -195,17 +197,17 @@ def start_shell(raft, done):
             app.exit()
             done.set()
 
-        elif line == "focus input":
-            app.layout.focus(input_window)
-            set_output("\u2192 Foco en entrada de comandos")
+        elif line == "config show":
+            set_output(json.dumps(get_config(), indent=2))
 
-        elif line == "focus output":
-            app.layout.focus(output_window)
-            set_output("\u2192 Foco en ventana de output")
-
-        elif line == "focus logs":
-            app.layout.focus(log_window)
-            set_output("\u2192 Foco en ventana de logs")
+        elif line.startswith("config set"):
+            try:
+                new_values = json.loads(cmd[len("show set"):].strip())
+                set_config(new_values)
+                save_config()
+                set_output("Configuration updated.")
+            except json.JSONDecodeError:
+                set_output("Invalid JSON.")
 
         else:
             logging.warning("Comando no reconocido. Escribe 'help' para ver los comandos.")
